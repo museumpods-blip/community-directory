@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,15 +7,15 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
 
 <style>
-body { font-family: Arial; background:#f4f4f4; margin:0; padding:15px; }
-#map { height:350px; margin-bottom:20px; border-radius:8px; border:1px solid #ccc; }
-form,.entry,.filter-group,.admin-controls,.delete-section,.admin-login{
+body{font-family:Arial;background:#f4f4f4;margin:0;padding:15px;}
+#map{height:350px;margin-bottom:20px;border-radius:8px;border:1px solid #ccc;}
+form,.entry,.admin-login,.filter-group{
 background:white;padding:15px;margin:10px auto;max-width:700px;
 border-radius:6px;box-shadow:0 0 6px rgba(0,0,0,0.1);}
-.entry{border-left:6px solid #4CAF50;margin-bottom:10px;}
 button{margin-top:10px;padding:8px 12px;background:#4CAF50;color:white;border:none;border-radius:4px;cursor:pointer;}
 button:hover{background:#45a049;}
 .tag{display:inline-block;padding:4px 8px;border-radius:999px;background:#e9f7ee;border:1px solid #cdebd7;font-size:12px;color:#1f6a3a;margin:2px;}
+input,textarea{width:100%;padding:8px;margin-top:5px;}
 </style>
 </head>
 
@@ -24,13 +24,24 @@ button:hover{background:#45a049;}
 <h1>Giving Hope DuBois – Community Directory</h1>
 <div id="map"></div>
 
+<div class="admin-login">
+<button onclick="adminLogin()">🔑 Admin Login</button>
+</div>
+
+<form id="adminForm" style="display:none;">
+<h3>Add Listing</h3>
+<input id="name" placeholder="Organization Name" required>
+<input id="types" placeholder="Types (comma separated)" required>
+<input id="location" placeholder="Full Address" required>
+<input id="contact" placeholder="Contact Info">
+<textarea id="notes" placeholder="Description"></textarea>
+<button type="submit">Save Listing</button>
+</form>
+
 <div class="filter-group">
 <button onclick="filterEntries('All')">All</button>
 <button onclick="filterEntries('Shelter')">Shelter</button>
 <button onclick="filterEntries('Food')">Food</button>
-<button onclick="filterEntries('Warming Center')">Warming Center</button>
-<button onclick="filterEntries('Clothing')">Clothing</button>
-<button onclick="filterEntries('Hygiene Kits')">Hygiene Kits</button>
 <button onclick="filterEntries('Other')">Other</button>
 </div>
 
@@ -39,65 +50,49 @@ button:hover{background:#45a049;}
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
 <script>
-let entries = [];
-let map;
-let markersLayer;
-let currentFilter = "All";
+/* ===== CONFIG ===== */
+const ADMIN_PASSWORD = "CHANGE_ME";
+const GITHUB_TOKEN = "PASTE_YOUR_TOKEN_HERE";
+const OWNER = "YOUR_GITHUB_USERNAME";
+const REPO = "community-directory";
+const FILE_PATH = "data.json";
+/* ================== */
 
-const centerCoords = { lat: 41.1197, lon: -78.7603 };
-const radiusMeters = 8046;
+let entries=[];
+let sha="";
+let isAdmin=false;
+let map,markersLayer;
+let currentFilter="All";
 
-document.addEventListener("DOMContentLoaded", async () => {
-
-  map = L.map('map').setView([centerCoords.lat, centerCoords.lon], 13);
-
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
-    attribution:'&copy; OpenStreetMap contributors'
-  }).addTo(map);
-
-  markersLayer = L.layerGroup().addTo(map);
-
-  L.circle([centerCoords.lat, centerCoords.lon],{
-    color:'blue',
-    fillColor:'#99ccff',
-    fillOpacity:0.2,
-    radius:radiusMeters
-  }).addTo(map);
-
+document.addEventListener("DOMContentLoaded", async()=>{
+  map=L.map('map').setView([41.1197,-78.7603],13);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap'}).addTo(map);
+  markersLayer=L.layerGroup().addTo(map);
   await loadData();
 });
 
 async function loadData(){
-  try{
-    const res = await fetch('data.json');
-    const json = await res.json();
-    entries = json.entries || [];
-    renderEntries(currentFilter);
-    addMarkers();
-  }catch(err){
-    console.error("Failed loading data.json",err);
-  }
+  const res=await fetch(FILE_PATH);
+  const json=await res.json();
+  entries=json.entries||[];
+  renderEntries(currentFilter);
+  addMarkers();
 }
 
 function renderEntries(filter){
-  currentFilter = filter;
-  const container = document.getElementById("entries");
-  container.innerHTML = "";
-
-  const filtered = entries.filter(e=>{
-    return filter==="All" || (e.types && e.types.includes(filter));
-  });
-
+  currentFilter=filter;
+  const container=document.getElementById("entries");
+  container.innerHTML="";
+  const filtered=entries.filter(e=>filter==="All"||(e.types||[]).includes(filter));
   filtered.forEach(entry=>{
-    const tags = (entry.types||[]).map(t=>`<span class="tag">${t}</span>`).join("");
-
-    const div = document.createElement("div");
+    const tags=(entry.types||[]).map(t=>`<span class="tag">${t}</span>`).join("");
+    const div=document.createElement("div");
     div.className="entry";
     div.innerHTML=`
       <strong>${escapeHtml(entry.name)}</strong><br>
       ${tags}<br>
       ${escapeHtml(entry.location)}<br>
-      ${escapeHtml(entry.contact)}<br>
+      ${escapeHtml(entry.contact||"")}<br>
       <small>${escapeHtml(entry.notes||"")}</small>
     `;
     container.appendChild(div);
@@ -106,20 +101,12 @@ function renderEntries(filter){
 
 async function addMarkers(){
   markersLayer.clearLayers();
-
   for(const entry of entries){
     try{
-      const res = await fetch(
-        "https://nominatim.openstreetmap.org/search?format=json&q="
-        + encodeURIComponent(entry.location)
-      );
-      const data = await res.json();
-
+      const res=await fetch("https://nominatim.openstreetmap.org/search?format=json&q="+encodeURIComponent(entry.location));
+      const data=await res.json();
       if(data.length>0){
-        const lat=parseFloat(data[0].lat);
-        const lon=parseFloat(data[0].lon);
-
-        L.marker([lat,lon])
+        L.marker([data[0].lat,data[0].lon])
           .addTo(markersLayer)
           .bindPopup(`<strong>${escapeHtml(entry.name)}</strong><br>${escapeHtml(entry.location)}`);
       }
@@ -127,8 +114,55 @@ async function addMarkers(){
   }
 }
 
-function filterEntries(type){
-  renderEntries(type);
+function filterEntries(type){renderEntries(type);}
+
+function adminLogin(){
+  const pw=prompt("Enter admin password:");
+  if(pw===ADMIN_PASSWORD){
+    isAdmin=true;
+    document.getElementById("adminForm").style.display="block";
+  }else alert("Incorrect password.");
+}
+
+document.getElementById("adminForm").addEventListener("submit",async function(e){
+  e.preventDefault();
+  if(!isAdmin)return;
+
+  const newEntry={
+    name:document.getElementById("name").value.trim(),
+    types:document.getElementById("types").value.split(",").map(x=>x.trim()),
+    location:document.getElementById("location").value.trim(),
+    contact:document.getElementById("contact").value.trim(),
+    notes:document.getElementById("notes").value.trim()
+  };
+
+  entries.push(newEntry);
+  await updateGitHub(entries);
+  alert("Listing saved! Refreshing...");
+  location.reload();
+});
+
+async function updateGitHub(data){
+  const getRes=await fetch(`https://api.github.com/repos/${OWNER}/${REPO}/contents/${FILE_PATH}`,{
+    headers:{Authorization:`Bearer ${GITHUB_TOKEN}`}
+  });
+  const fileData=await getRes.json();
+  sha=fileData.sha;
+
+  const content=btoa(unescape(encodeURIComponent(JSON.stringify({entries:data},null,2))));
+
+  await fetch(`https://api.github.com/repos/${OWNER}/${REPO}/contents/${FILE_PATH}`,{
+    method:"PUT",
+    headers:{
+      Authorization:`Bearer ${GITHUB_TOKEN}`,
+      "Content-Type":"application/json"
+    },
+    body:JSON.stringify({
+      message:"Update listings",
+      content:content,
+      sha:sha
+    })
+  });
 }
 
 function escapeHtml(str){
