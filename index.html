@@ -1,568 +1,145 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Giving Hope – Community Directory</title>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
-  <style>
-    body { font-family: Arial, sans-serif; background: #f4f4f4; margin: 0; padding: 15px; }
-    h1 { text-align: center; }
-    #map { height: 350px; margin-bottom: 20px; border-radius: 8px; border: 1px solid #ccc; }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Giving Hope – Community Directory</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
 
-    form, .entry, .filter-group, .admin-controls, .delete-section, .admin-login {
-      background: white; padding: 15px; margin: 10px auto; max-width: 700px;
-      border-radius: 6px; box-shadow: 0 0 6px rgba(0,0,0,0.1);
-    }
-
-    .entry { border-left: 6px solid #4CAF50; margin-bottom: 10px; }
-    .entry .type { font-weight: bold; color: #4CAF50; }
-
-    label { display: block; margin-top: 10px; }
-    input, textarea, select { width: 100%; padding: 8px; margin-top: 5px; box-sizing: border-box; }
-
-    button {
-      margin-top: 10px; padding: 8px 12px; background: #4CAF50;
-      color: white; border: none; cursor: pointer; border-radius: 4px;
-    }
-    button:hover { background: #45a049; }
-
-    .filter-group button { margin-right: 5px; margin-bottom: 5px; }
-    .pending-entry { border-left: 6px solid #999; background: #fafafa; }
-    .map-link a { color: #0066cc; text-decoration: none; }
-
-    /* Multi-choice types */
-    .type-group {
-      margin-top: 8px;
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px;
-    }
-    .type-pill {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 8px 10px;
-      border: 1px solid #ddd;
-      border-radius: 8px;
-      background: #fafafa;
-      cursor: pointer;
-      user-select: none;
-    }
-    .type-pill input { width: auto; margin: 0; }
-
-    .type-pills-display {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-      margin: 6px 0 8px;
-    }
-    .tag {
-      display: inline-block;
-      padding: 4px 8px;
-      border-radius: 999px;
-      background: #e9f7ee;
-      border: 1px solid #cdebd7;
-      font-size: 12px;
-      color: #1f6a3a;
-    }
-    .tag.other { background: #f3f0ff; border-color: #ddd6fe; color: #4c1d95; }
-    .hint { font-size: 12px; color: #666; margin-top: 6px; }
-
-    .admin-bar {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
-      flex-wrap: wrap;
-    }
-    .admin-status {
-      font-size: 14px;
-      color: #333;
-    }
-    .admin-status span {
-      display: inline-block;
-      padding: 2px 8px;
-      border-radius: 999px;
-      border: 1px solid #ddd;
-      background: #fafafa;
-      margin-left: 6px;
-    }
-    .admin-status .on { background: #e9f7ee; border-color: #cdebd7; color: #1f6a3a; }
-    .admin-status .off { background: #fff3f3; border-color: #ffd0d0; color: #8a1f1f; }
-
-    .btn-secondary {
-      background: #666;
-    }
-    .btn-secondary:hover {
-      background: #555;
-    }
-
-    @media (max-width: 600px) {
-      #map { height: 280px; }
-      button { width: 100%; }
-      .type-group { grid-template-columns: 1fr; }
-      .admin-bar { flex-direction: column; align-items: stretch; }
-    }
-  </style>
+<style>
+body { font-family: Arial; background:#f4f4f4; margin:0; padding:15px; }
+#map { height:350px; margin-bottom:20px; border-radius:8px; border:1px solid #ccc; }
+form,.entry,.filter-group,.admin-controls,.delete-section,.admin-login{
+background:white;padding:15px;margin:10px auto;max-width:700px;
+border-radius:6px;box-shadow:0 0 6px rgba(0,0,0,0.1);}
+.entry{border-left:6px solid #4CAF50;margin-bottom:10px;}
+button{margin-top:10px;padding:8px 12px;background:#4CAF50;color:white;border:none;border-radius:4px;cursor:pointer;}
+button:hover{background:#45a049;}
+.tag{display:inline-block;padding:4px 8px;border-radius:999px;background:#e9f7ee;border:1px solid #cdebd7;font-size:12px;color:#1f6a3a;margin:2px;}
+</style>
 </head>
 
 <body>
-  <h1>Giving Hope DuBois – Community Directory</h1>
-  <div id="map"></div>
 
-  <form id="orgForm">
-    <label>Organization Name:</label>
-    <input type="text" id="name" required />
+<h1>Giving Hope DuBois – Community Directory</h1>
+<div id="map"></div>
 
-    <label>Service Type (select all that apply):</label>
+<div class="filter-group">
+<button onclick="filterEntries('All')">All</button>
+<button onclick="filterEntries('Shelter')">Shelter</button>
+<button onclick="filterEntries('Food')">Food</button>
+<button onclick="filterEntries('Warming Center')">Warming Center</button>
+<button onclick="filterEntries('Clothing')">Clothing</button>
+<button onclick="filterEntries('Hygiene Kits')">Hygiene Kits</button>
+<button onclick="filterEntries('Other')">Other</button>
+</div>
 
-    <div class="type-group" id="typeGroup">
-      <label class="type-pill"><input type="checkbox" name="type" value="Shelter"> Shelter</label>
-      <label class="type-pill"><input type="checkbox" name="type" value="Food"> Food</label>
-      <label class="type-pill"><input type="checkbox" name="type" value="Warming Center"> Warming Center</label>
-      <label class="type-pill"><input type="checkbox" name="type" value="Hygiene Kits"> Hygiene Kits</label>
-      <label class="type-pill"><input type="checkbox" name="type" value="Clothing"> Clothing</label>
-      <label class="type-pill"><input type="checkbox" name="type" value="Other" id="typeOther"> Other</label>
-    </div>
+<div id="entries"></div>
 
-    <div id="otherWrap" style="display:none;">
-      <label>Other (short description):</label>
-      <input type="text" id="otherType" maxlength="60" placeholder="e.g. Legal aid, Transportation, Job help">
-      <div class="hint">Required if “Other” is selected.</div>
-    </div>
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
-    <label>Location (Full Address):</label>
-    <input type="text" id="location" required />
+<script>
+let entries = [];
+let map;
+let markersLayer;
+let currentFilter = "All";
 
-    <label>Contact Info:</label>
-    <input type="text" id="contact" required />
+const centerCoords = { lat: 41.1197, lon: -78.7603 };
+const radiusMeters = 8046;
 
-    <label>Description:</label>
-    <textarea id="notes"></textarea>
+document.addEventListener("DOMContentLoaded", async () => {
 
-    <label>Secret Delete Key (choose something memorable):</label>
-    <input type="text" id="deleteKey" required />
+  map = L.map('map').setView([centerCoords.lat, centerCoords.lon], 13);
 
-    <button type="submit">Submit</button>
-  </form>
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+    attribution:'&copy; OpenStreetMap contributors'
+  }).addTo(map);
 
-  <div class="filter-group">
-    <button onclick="filterEntries('All')">All</button>
-    <button onclick="filterEntries('Shelter')">Shelter</button>
-    <button onclick="filterEntries('Food')">Food</button>
-    <button onclick="filterEntries('Warming Center')">Warming Center</button>
-    <button onclick="filterEntries('Clothing')">Clothing</button>
-    <button onclick="filterEntries('Hygiene Kits')">Hygiene Kits</button>
-    <button onclick="filterEntries('Other')">Other</button>
-  </div>
+  markersLayer = L.layerGroup().addTo(map);
 
-  <div id="entries"></div>
+  L.circle([centerCoords.lat, centerCoords.lon],{
+    color:'blue',
+    fillColor:'#99ccff',
+    fillOpacity:0.2,
+    radius:radiusMeters
+  }).addTo(map);
 
-  <div class="delete-section">
-    <h3>🧹 Delete My Listing</h3>
-    <label>Organization Name:</label>
-    <input type="text" id="deleteName">
-    <label>Your Delete Key:</label>
-    <input type="text" id="deleteKeyInput">
-    <button onclick="deleteByKey()">Delete Listing</button>
-  </div>
+  await loadData();
+});
 
-  <!-- Admin login panel -->
-  <div class="admin-login">
-    <div class="admin-bar">
-      <div class="admin-status">
-        Admin mode:
-        <span id="adminPill" class="off">OFF</span>
-      </div>
-      <div style="display:flex; gap:10px; flex-wrap:wrap;">
-        <button class="btn-secondary" onclick="adminLogin()">🔑 Admin Login</button>
-        <button class="btn-secondary" onclick="adminLogout()">🚪 Admin Logout</button>
-      </div>
-    </div>
-    <div class="hint" style="margin-top:10px;">
-      Admin mode is required to approve or delete listings. View + submit remain public.
-    </div>
-  </div>
+async function loadData(){
+  try{
+    const res = await fetch('data.json');
+    const json = await res.json();
+    entries = json.entries || [];
+    renderEntries(currentFilter);
+    addMarkers();
+  }catch(err){
+    console.error("Failed loading data.json",err);
+  }
+}
 
-  <div class="admin-controls" id="adminControls" style="display:none;">
-    <h3>🕒 Pending Submissions</h3>
-    <div id="pendingList"></div>
-    <button onclick="approvePending()">✅ Approve All</button>
-  </div>
+function renderEntries(filter){
+  currentFilter = filter;
+  const container = document.getElementById("entries");
+  container.innerHTML = "";
 
-  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-  <script>
-    /********************
-     * ADMIN PASSWORD
-     * IMPORTANT: This is client-side only. Anyone can view-source and see it.
-     * It's a basic deterrent, not real security.
-     ********************/
-    const ADMIN_PASSWORD = "CHANGE_ME"; // <-- change this
+  const filtered = entries.filter(e=>{
+    return filter==="All" || (e.types && e.types.includes(filter));
+  });
 
-    // Admin session flag (per-browser)
-    let isAdmin = sessionStorage.getItem('isAdmin') === 'true';
+  filtered.forEach(entry=>{
+    const tags = (entry.types||[]).map(t=>`<span class="tag">${t}</span>`).join("");
 
-    let entries = JSON.parse(localStorage.getItem('entries')) || [];
-    let pendingEntries = JSON.parse(localStorage.getItem('pendingEntries')) || [];
+    const div = document.createElement("div");
+    div.className="entry";
+    div.innerHTML=`
+      <strong>${escapeHtml(entry.name)}</strong><br>
+      ${tags}<br>
+      ${escapeHtml(entry.location)}<br>
+      ${escapeHtml(entry.contact)}<br>
+      <small>${escapeHtml(entry.notes||"")}</small>
+    `;
+    container.appendChild(div);
+  });
+}
 
-    const radiusMeters = 8046; // 5 miles
-    const centerCoords = { lat: 41.1197, lon: -78.7603 };
+async function addMarkers(){
+  markersLayer.clearLayers();
 
-    let map;
-    let markersLayer;
-    let currentFilter = 'All';
+  for(const entry of entries){
+    try{
+      const res = await fetch(
+        "https://nominatim.openstreetmap.org/search?format=json&q="
+        + encodeURIComponent(entry.location)
+      );
+      const data = await res.json();
 
-    const otherWrap = document.getElementById('otherWrap');
-    const typeOtherCheckbox = document.getElementById('typeOther');
-    const otherTypeInput = document.getElementById('otherType');
+      if(data.length>0){
+        const lat=parseFloat(data[0].lat);
+        const lon=parseFloat(data[0].lon);
 
-    function setAdminUI() {
-      const pill = document.getElementById('adminPill');
-      const adminControls = document.getElementById('adminControls');
-
-      if (isAdmin) {
-        pill.textContent = "ON";
-        pill.classList.remove('off');
-        pill.classList.add('on');
-        adminControls.style.display = "block";
-      } else {
-        pill.textContent = "OFF";
-        pill.classList.remove('on');
-        pill.classList.add('off');
-        adminControls.style.display = "none";
+        L.marker([lat,lon])
+          .addTo(markersLayer)
+          .bindPopup(`<strong>${escapeHtml(entry.name)}</strong><br>${escapeHtml(entry.location)}`);
       }
+    }catch(e){}
+  }
+}
 
-      // Re-render so admin buttons appear/disappear
-      renderEntries(currentFilter);
-      renderPendingEntries();
-    }
+function filterEntries(type){
+  renderEntries(type);
+}
 
-    function adminLogin() {
-      const pw = prompt("Enter admin password:");
-      if (pw === null) return;
-      if (pw === ADMIN_PASSWORD) {
-        isAdmin = true;
-        sessionStorage.setItem('isAdmin', 'true');
-        setAdminUI();
-        alert("Admin mode enabled.");
-      } else {
-        alert("Incorrect password.");
-      }
-    }
+function escapeHtml(str){
+  return String(str??"")
+    .replaceAll("&","&amp;")
+    .replaceAll("<","&lt;")
+    .replaceAll(">","&gt;")
+    .replaceAll('"',"&quot;")
+    .replaceAll("'","&#039;");
+}
+</script>
 
-    function adminLogout() {
-      isAdmin = false;
-      sessionStorage.removeItem('isAdmin');
-      setAdminUI();
-      alert("Admin mode disabled.");
-    }
-
-    function getSelectedTypes() {
-      return Array.from(document.querySelectorAll('input[name="type"]:checked')).map(cb => cb.value);
-    }
-
-    function normalizeTypesForDisplay(entry) {
-      const t = Array.isArray(entry.types) ? entry.types : (entry.type ? [entry.type] : []);
-      const hasOther = t.includes('Other');
-      const otherLabel = entry.otherType ? `Other: ${entry.otherType}` : 'Other';
-      const display = t.map(x => (x === 'Other' && hasOther) ? otherLabel : x);
-      return display;
-    }
-
-    function ensureTypesShape(entry) {
-      if (!Array.isArray(entry.types)) {
-        entry.types = entry.type ? [entry.type] : [];
-        delete entry.type;
-      }
-      if (entry.otherType && !entry.types.includes('Other')) {
-        entry.types.push('Other');
-      }
-    }
-
-    function syncOtherField() {
-      const checked = typeOtherCheckbox.checked;
-      otherWrap.style.display = checked ? 'block' : 'none';
-      if (!checked) otherTypeInput.value = '';
-    }
-
-    typeOtherCheckbox.addEventListener('change', syncOtherField);
-
-    document.addEventListener("DOMContentLoaded", () => {
-      entries.forEach(ensureTypesShape);
-      pendingEntries.forEach(ensureTypesShape);
-      localStorage.setItem('entries', JSON.stringify(entries));
-      localStorage.setItem('pendingEntries', JSON.stringify(pendingEntries));
-
-      map = L.map('map').setView([centerCoords.lat, centerCoords.lon], 13);
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; OpenStreetMap contributors'
-      }).addTo(map);
-
-      markersLayer = L.layerGroup().addTo(map);
-
-      L.circle([centerCoords.lat, centerCoords.lon], {
-        color: 'blue',
-        fillColor: '#99ccff',
-        fillOpacity: 0.2,
-        radius: radiusMeters
-      }).addTo(map);
-
-      syncOtherField();
-      setAdminUI();
-      renderEntries(currentFilter);
-      renderPendingEntries();
-      addMarkers();
-    });
-
-    document.getElementById('orgForm').addEventListener('submit', function(e) {
-      e.preventDefault();
-
-      const types = getSelectedTypes();
-      if (types.length === 0) {
-        alert("Please select at least one Service Type.");
-        return;
-      }
-
-      const otherSelected = types.includes('Other');
-      const otherType = otherTypeInput.value.trim();
-
-      if (otherSelected && !otherType) {
-        alert("Please fill in the short description for Other.");
-        otherTypeInput.focus();
-        return;
-      }
-
-      const entry = {
-        name: document.getElementById('name').value.trim(),
-        types,
-        otherType: otherSelected ? otherType : "",
-        location: document.getElementById('location').value.trim(),
-        contact: document.getElementById('contact').value.trim(),
-        notes: document.getElementById('notes').value.trim(),
-        deleteKey: document.getElementById('deleteKey').value.trim(),
-        submittedAt: new Date().toLocaleString()
-      };
-
-      pendingEntries.push(entry);
-      localStorage.setItem('pendingEntries', JSON.stringify(pendingEntries));
-      this.reset();
-      syncOtherField();
-      renderPendingEntries();
-      alert("Submitted for approval!");
-    });
-
-    function haversine(lat1, lon1, lat2, lon2) {
-      const toRad = deg => deg * Math.PI / 180;
-      const R = 6371000;
-      const dLat = toRad(lat2 - lat1);
-      const dLon = toRad(lon2 - lon1);
-      const a = Math.sin(dLat/2)**2 +
-                Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
-                Math.sin(dLon/2)**2;
-      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-      return R * c;
-    }
-
-    async function addMarkers() {
-      markersLayer.clearLayers();
-
-      for (const entry of entries) {
-        ensureTypesShape(entry);
-
-        try {
-          const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(entry.location)}`);
-          const data = await res.json();
-
-          if (data.length > 0) {
-            const lat = parseFloat(data[0].lat);
-            const lon = parseFloat(data[0].lon);
-            const distance = haversine(centerCoords.lat, centerCoords.lon, lat, lon);
-
-            entry._withinRadius = distance <= radiusMeters;
-
-            if (entry._withinRadius) {
-              const typesDisplay = normalizeTypesForDisplay(entry);
-              const typesHtml = typesDisplay.map(t => `<span class="tag ${t.startsWith('Other:') ? 'other' : ''}">${escapeHtml(t)}</span>`).join(' ');
-
-              L.marker([lat, lon])
-                .addTo(markersLayer)
-                .bindPopup(`
-                  <strong>${escapeHtml(entry.name)}</strong><br>
-                  <div style="margin:6px 0;">${typesHtml}</div>
-                  ${escapeHtml(entry.location)}<br>
-                  ${escapeHtml(entry.contact)}<br>
-                  ${entry.notes ? `<small>${escapeHtml(entry.notes)}</small><br>` : ''}
-                `);
-            }
-          } else {
-            entry._withinRadius = false;
-          }
-        } catch {
-          entry._withinRadius = false;
-        }
-      }
-
-      localStorage.setItem('entries', JSON.stringify(entries));
-      renderEntries(currentFilter);
-    }
-
-    function renderEntries(filter = 'All') {
-      currentFilter = filter;
-
-      const container = document.getElementById('entries');
-      container.innerHTML = '';
-
-      const filtered = entries.filter(e => {
-        ensureTypesShape(e);
-        const matchType = filter === 'All' || (Array.isArray(e.types) && e.types.includes(filter));
-        return matchType && e._withinRadius !== false;
-      });
-
-      filtered.forEach((entry, index) => {
-        const directionsUrl = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(entry.location)}`;
-
-        const typesDisplay = normalizeTypesForDisplay(entry);
-        const tags = typesDisplay.map(t => `<span class="tag ${t.startsWith('Other:') ? 'other' : ''}">${escapeHtml(t)}</span>`).join('');
-
-        const adminDeleteBtn = isAdmin
-          ? `<button onclick="deleteEntry(${index})">🗑 Admin Delete</button>`
-          : ``;
-
-        const div = document.createElement('div');
-        div.className = 'entry';
-        div.innerHTML = `
-          <div class="type">Services:</div>
-          <div class="type-pills-display">${tags}</div>
-
-          <div><strong>${escapeHtml(entry.name)}</strong></div>
-          <div>${escapeHtml(entry.location)}</div>
-          <div class="map-link"><a href="${directionsUrl}" target="_blank" rel="noopener">🚗 Get Directions</a></div>
-          <div>${escapeHtml(entry.contact)}</div>
-          <div>${escapeHtml(entry.notes || '')}</div>
-          <div><em>Submitted: ${escapeHtml(entry.submittedAt)}</em></div>
-          ${adminDeleteBtn}
-        `;
-        container.appendChild(div);
-      });
-    }
-
-    function renderPendingEntries() {
-      const container = document.getElementById('pendingList');
-      container.innerHTML = '';
-
-      if (!isAdmin) {
-        container.innerHTML = "<p><em>Admin login required to view/approve pending submissions.</em></p>";
-        return;
-      }
-
-      if (pendingEntries.length === 0) {
-        container.innerHTML = "<p>No pending submissions.</p>";
-        return;
-      }
-
-      pendingEntries.forEach((entry, index) => {
-        ensureTypesShape(entry);
-        const typesDisplay = normalizeTypesForDisplay(entry);
-        const tags = typesDisplay.map(t => `<span class="tag ${t.startsWith('Other:') ? 'other' : ''}">${escapeHtml(t)}</span>`).join('');
-
-        const div = document.createElement('div');
-        div.className = 'entry pending-entry';
-        div.innerHTML = `
-          <div class="type">Pending:</div>
-          <div class="type-pills-display">${tags}</div>
-
-          <div><strong>${escapeHtml(entry.name)}</strong></div>
-          <div>${escapeHtml(entry.location)}</div>
-          <div>${escapeHtml(entry.contact)}</div>
-          <div>${escapeHtml(entry.notes || '')}</div>
-          <div><em>Submitted: ${escapeHtml(entry.submittedAt)}</em></div>
-          <button onclick="approveSingle(${index})">✅ Approve</button>
-          <button onclick="deletePending(${index})">🗑 Delete</button>
-        `;
-        container.appendChild(div);
-      });
-    }
-
-    function requireAdmin(actionName = "This action") {
-      if (isAdmin) return true;
-      alert(`${actionName} requires admin login.`);
-      return false;
-    }
-
-    function approveSingle(index) {
-      if (!requireAdmin("Approve")) return;
-      const entry = pendingEntries.splice(index, 1)[0];
-      ensureTypesShape(entry);
-      entries.push({ ...entry });
-
-      localStorage.setItem('entries', JSON.stringify(entries));
-      localStorage.setItem('pendingEntries', JSON.stringify(pendingEntries));
-
-      renderPendingEntries();
-      addMarkers();
-    }
-
-    function approvePending() {
-      if (!requireAdmin("Approve All")) return;
-
-      const incoming = pendingEntries.map(e => {
-        ensureTypesShape(e);
-        return ({ ...e });
-      });
-
-      entries = entries.concat(incoming);
-      pendingEntries = [];
-
-      localStorage.setItem('entries', JSON.stringify(entries));
-      localStorage.setItem('pendingEntries', JSON.stringify(pendingEntries));
-
-      renderPendingEntries();
-      addMarkers();
-    }
-
-    function deleteEntry(index) {
-      if (!requireAdmin("Admin Delete")) return;
-      entries.splice(index, 1);
-      localStorage.setItem('entries', JSON.stringify(entries));
-      addMarkers();
-    }
-
-    function deletePending(index) {
-      if (!requireAdmin("Delete Pending")) return;
-      pendingEntries.splice(index, 1);
-      localStorage.setItem('pendingEntries', JSON.stringify(pendingEntries));
-      renderPendingEntries();
-    }
-
-    function deleteByKey() {
-      const name = document.getElementById('deleteName').value.trim();
-      const key = document.getElementById('deleteKeyInput').value.trim();
-
-      const idx = entries.findIndex(e => (e.name || '').trim() === name && (e.deleteKey || '').trim() === key);
-      if (idx !== -1) {
-        entries.splice(idx, 1);
-        localStorage.setItem('entries', JSON.stringify(entries));
-        addMarkers();
-        alert("Listing deleted.");
-      } else {
-        alert("No match found for that name and delete key.");
-      }
-    }
-
-    function filterEntries(type) {
-      renderEntries(type);
-    }
-
-    function escapeHtml(str) {
-      return String(str ?? '')
-        .replaceAll('&', '&amp;')
-        .replaceAll('<', '&lt;')
-        .replaceAll('>', '&gt;')
-        .replaceAll('"', '&quot;')
-        .replaceAll("'", '&#039;');
-    }
-  </script>
 </body>
 </html>
