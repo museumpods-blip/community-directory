@@ -1,3 +1,11 @@
 {
-  "entries": []
+  "entries": [
+    {
+      "name": "Example Shelter",
+      "types": ["Shelter"],
+      "location": "1 W Long Ave, DuBois, PA 15801",
+      "contact": "814-000-0000",
+      "notes": "Temporary example listing"
+    }
+  ]
 }
