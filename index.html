@@ -72,7 +72,6 @@ document.addEventListener("DOMContentLoaded", async()=>{
 });
 
 async function loadData(){
-  // CACHE BUST FIX
   const res=await fetch(FILE_PATH + "?v=" + Date.now());
   const json=await res.json();
   entries=json.entries||[];
