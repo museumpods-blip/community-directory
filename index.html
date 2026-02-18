@@ -4,30 +4,41 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Giving Hope – Community Directory</title>
+
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <style>
-body{font-family:Arial;background:#f4f4f4;margin:0;padding:15px;}
-h1{text-align:center;}
-#map{height:350px;margin-bottom:20px;border-radius:8px;border:1px solid #ccc;}
-.entry{
-background:white;
-padding:15px;
-margin:10px auto;
-max-width:700px;
-border-radius:6px;
-box-shadow:0 0 6px rgba(0,0,0,0.1);
-border-left:6px solid #4CAF50;
+body { font-family: Arial; background:#f4f4f4; margin:0; padding:15px; }
+h1 { text-align:center; }
+#map { height:350px; margin-bottom:20px; border-radius:8px; border:1px solid #ccc; }
+
+form, .entry {
+  background:white;
+  padding:15px;
+  margin:10px auto;
+  max-width:700px;
+  border-radius:6px;
+  box-shadow:0 0 6px rgba(0,0,0,0.1);
 }
-.tag{
-display:inline-block;
-padding:4px 8px;
-border-radius:999px;
-background:#e9f7ee;
-border:1px solid #cdebd7;
-font-size:12px;
-color:#1f6a3a;
-margin:2px;
+
+button {
+  padding:8px 12px;
+  background:#4CAF50;
+  color:white;
+  border:none;
+  border-radius:4px;
+  cursor:pointer;
+}
+
+.tag {
+  display:inline-block;
+  padding:4px 8px;
+  border-radius:999px;
+  background:#e9f7ee;
+  border:1px solid #cdebd7;
+  font-size:12px;
+  margin:2px;
 }
 </style>
 </head>
@@ -35,17 +46,37 @@ margin:2px;
 <body>
 
 <h1>Giving Hope in DuBois – Community Directory</h1>
+
 <div id="map"></div>
+
+<form id="orgForm">
+  <h3>Submit Listing</h3>
+  <input type="text" id="name" placeholder="Organization Name" required><br><br>
+  <input type="text" id="types" placeholder="Type (Food, Shelter, etc)" required><br><br>
+  <input type="text" id="location" placeholder="Full Address" required><br><br>
+  <input type="text" id="contact" placeholder="Contact Info"><br><br>
+  <textarea id="notes" placeholder="Description"></textarea><br><br>
+  <input type="text" id="deleteKey" placeholder="Choose Delete Key" required><br><br>
+  <button type="submit">Submit</button>
+</form>
+
 <div id="entries"></div>
 
-<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-
 <script>
+const SUPABASE_URL = "https://jifbhauuqcsesscjshjl.supabase.co/functions/v1/submit-listing";
+const SUPABASE_ANON_KEY = "sb_publishable_jLRC9m1Kd28OJy1DOpqKCw_W93_A_4G";
+const FUNCTION_URL = "https://museumpods-blip.github.io/community-directory/";
+
+const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+const CENTER = [41.1197, -78.7603];
+const RADIUS = 32186;
+
 let map, markersLayer;
-let entries = [];
 
 document.addEventListener("DOMContentLoaded", async () => {
-  map = L.map('map').setView([41.1197,-78.7603],13);
+
+  map = L.map('map').setView(CENTER, 12);
 
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
     attribution:'© OpenStreetMap'
@@ -53,60 +84,104 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   markersLayer = L.layerGroup().addTo(map);
 
-  await loadData();
+  L.circle(CENTER, {
+    radius: RADIUS,
+    color: "blue",
+    fillOpacity: 0.1
+  }).addTo(map);
+
+  loadListings();
 });
 
-async function loadData(){
-  const res = await fetch("data.json?v=" + Date.now());
-  const json = await res.json();
-  entries = json.entries || [];
-  renderEntries();
-  addMarkers();
+async function loadListings() {
+  const { data } = await supabase
+    .from("listings")
+    .select("*");
+
+  renderListings(data || []);
 }
 
-function renderEntries(){
+function renderListings(entries) {
+  markersLayer.clearLayers();
   const container = document.getElementById("entries");
   container.innerHTML = "";
 
   entries.forEach(entry => {
     const tags = (entry.types || [])
-      .map(t => `<span class="tag">${escapeHtml(t)}</span>`)
+      .map(t => `<span class="tag">${t}</span>`)
       .join("");
 
     const div = document.createElement("div");
     div.className = "entry";
     div.innerHTML = `
-      <strong>${escapeHtml(entry.name)}</strong><br>
+      <strong>${entry.name}</strong><br>
       ${tags}<br>
-      ${escapeHtml(entry.location)}<br>
-      ${escapeHtml(entry.contact || "")}<br>
-      <small>${escapeHtml(entry.notes || "")}</small>
+      ${entry.location}<br>
+      ${entry.contact || ""}<br>
+      ${entry.notes || ""}<br><br>
+      <button onclick="deleteListing('${entry.id}')">Delete</button>
     `;
     container.appendChild(div);
+
+    L.marker([entry.lat, entry.lng])
+      .addTo(markersLayer)
+      .bindPopup(`<strong>${entry.name}</strong><br>${entry.location}`);
   });
 }
 
-function addMarkers(){
-  markersLayer.clearLayers();
+document.getElementById("orgForm").addEventListener("submit", async e => {
+  e.preventDefault();
 
-  entries.forEach(entry => {
-    if(entry.lat && entry.lng){
-      L.marker([entry.lat, entry.lng])
-        .addTo(markersLayer)
-        .bindPopup(`<strong>${escapeHtml(entry.name)}</strong><br>${escapeHtml(entry.location)}`);
-    }
+  const body = {
+    name: document.getElementById("name").value,
+    types: document.getElementById("types").value.split(",").map(t=>t.trim()),
+    location: document.getElementById("location").value,
+    contact: document.getElementById("contact").value,
+    notes: document.getElementById("notes").value,
+    deleteKey: document.getElementById("deleteKey").value
+  };
+
+  const res = await fetch(FUNCTION_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body)
   });
-}
 
-function escapeHtml(str){
-  return String(str ?? "")
-    .replaceAll("&","&amp;")
-    .replaceAll("<","&lt;")
-    .replaceAll(">","&gt;")
-    .replaceAll('"',"&quot;")
-    .replaceAll("'","&#039;");
+  const text = await res.text();
+  alert(text);
+
+  e.target.reset();
+});
+
+async function deleteListing(id) {
+  const key = prompt("Enter your delete key:");
+  if (!key) return;
+
+  const hashBuffer = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(key)
+  );
+
+  const hash = Array.from(new Uint8Array(hashBuffer))
+    .map(b => b.toString(16).padStart(2, "0"))
+    .join("");
+
+  const { error } = await supabase
+    .from("listings")
+    .delete()
+    .eq("id", id)
+    .eq("delete_key_hash", hash);
+
+  if (error) {
+    alert("Delete failed");
+  } else {
+    alert("Deleted");
+    loadListings();
+  }
 }
 </script>
+
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
 </body>
 </html>
