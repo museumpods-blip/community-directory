@@ -13,7 +13,7 @@ body { font-family: Arial; background:#f4f4f4; margin:0; padding:15px; }
 h1 { text-align:center; }
 #map { height:350px; margin-bottom:20px; border-radius:8px; border:1px solid #ccc; }
 
-form, .entry {
+form, .entry, #adminPanel {
   background:white;
   padding:15px;
   margin:10px auto;
@@ -29,6 +29,7 @@ button {
   border:none;
   border-radius:4px;
   cursor:pointer;
+  margin:3px;
 }
 
 .tag {
@@ -62,12 +63,21 @@ button {
 
 <div id="entries"></div>
 
+<hr>
+
+<div id="adminPanel">
+  <h3>Admin Panel</h3>
+  <button onclick="adminLogin()">Admin Login</button>
+  <div id="adminContent" style="display:none;margin-top:15px;"></div>
+</div>
+
 <script>
 const SUPABASE_URL = "https://jifbhauuqcsesscjshjl.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_jLRC9m1Kd28OJy1DOpqKCw_W93_A_4G";
 const FUNCTION_URL = "https://jifbhauuqcsesscjshjl.supabase.co/functions/v1/submit-listing";
+const ADMIN_PASSWORD = "Nittany2";
 
-const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const CENTER = [41.1197, -78.7603];
 const RADIUS = 32186;
@@ -94,14 +104,9 @@ document.addEventListener("DOMContentLoaded", async () => {
 });
 
 async function loadListings() {
-  const { data, error } = await supabaseClient
+  const { data } = await supabaseClient
     .from("listings")
     .select("*");
-
-  if (error) {
-    console.error(error);
-    return;
-  }
 
   renderListings(data || []);
 }
@@ -112,6 +117,7 @@ function renderListings(entries) {
   container.innerHTML = "";
 
   entries.forEach(entry => {
+
     const tags = (entry.types || [])
       .map(t => `<span class="tag">${t}</span>`)
       .join("");
@@ -154,7 +160,6 @@ document.getElementById("orgForm").addEventListener("submit", async e => {
 
   const text = await res.text();
   alert(text);
-
   e.target.reset();
 });
 
@@ -177,12 +182,70 @@ async function deleteListing(id) {
     .eq("id", id)
     .eq("delete_key_hash", hash);
 
-  if (error) {
-    alert("Delete failed");
+  if (!error) loadListings();
+  else alert("Delete failed");
+}
+
+/* ADMIN */
+
+function adminLogin() {
+  const pw = prompt("Enter admin password:");
+  if (pw === ADMIN_PASSWORD) {
+    loadPending();
   } else {
-    alert("Deleted");
-    loadListings();
+    alert("Incorrect password");
   }
+}
+
+async function loadPending() {
+  const { data } = await supabaseClient
+    .from("listings")
+    .select("*")
+    .eq("approved", false);
+
+  const container = document.getElementById("adminContent");
+  container.style.display = "block";
+  container.innerHTML = "";
+
+  if (!data.length) {
+    container.innerHTML = "<p>No pending submissions.</p>";
+    return;
+  }
+
+  data.forEach(entry => {
+    const div = document.createElement("div");
+    div.style.borderBottom = "1px solid #ddd";
+    div.style.padding = "10px 0";
+
+    div.innerHTML = `
+      <strong>${entry.name}</strong><br>
+      ${entry.location}<br><br>
+      <button onclick="approveListing('${entry.id}')">Approve</button>
+      <button onclick="adminDelete('${entry.id}')">Delete</button>
+    `;
+
+    container.appendChild(div);
+  });
+}
+
+async function approveListing(id) {
+  await supabaseClient
+    .from("listings")
+    .update({ approved: true })
+    .eq("id", id);
+
+  loadPending();
+  loadListings();
+}
+
+async function adminDelete(id) {
+  await supabaseClient
+    .from("listings")
+    .delete()
+    .eq("id", id);
+
+  loadPending();
+  loadListings();
 }
 </script>
 
