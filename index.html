@@ -36,7 +36,6 @@ margin:2px;
 
 <h1>Giving Hope DuBois – Community Directory</h1>
 <div id="map"></div>
-
 <div id="entries"></div>
 
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
@@ -83,30 +82,20 @@ function renderEntries(){
       ${escapeHtml(entry.contact || "")}<br>
       <small>${escapeHtml(entry.notes || "")}</small>
     `;
-
     container.appendChild(div);
   });
 }
 
-async function addMarkers(){
+function addMarkers(){
   markersLayer.clearLayers();
 
-  for(const entry of entries){
-    try{
-      const res = await fetch(
-        "https://nominatim.openstreetmap.org/search?format=json&q=" +
-        encodeURIComponent(entry.location)
-      );
-
-      const data = await res.json();
-
-      if(data.length > 0){
-        L.marker([data[0].lat, data[0].lon])
-          .addTo(markersLayer)
-          .bindPopup(`<strong>${escapeHtml(entry.name)}</strong><br>${escapeHtml(entry.location)}`);
-      }
-    } catch(e){}
-  }
+  entries.forEach(entry => {
+    if(entry.lat && entry.lng){
+      L.marker([entry.lat, entry.lng])
+        .addTo(markersLayer)
+        .bindPopup(`<strong>${escapeHtml(entry.name)}</strong><br>${escapeHtml(entry.location)}`);
+    }
+  });
 }
 
 function escapeHtml(str){
