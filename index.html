@@ -13,7 +13,7 @@ body { font-family: Arial; background:#f4f4f4; margin:0; padding:15px; }
 h1 { text-align:center; }
 #map { height:350px; margin-bottom:20px; border-radius:8px; border:1px solid #ccc; }
 
-form, .entry, #adminPanel {
+form, .entry, .card {
   background:white;
   padding:15px;
   margin:10px auto;
@@ -29,8 +29,10 @@ button {
   border:none;
   border-radius:4px;
   cursor:pointer;
-  margin:3px;
+  margin:3px 0;
 }
+
+button:hover { opacity:0.9; }
 
 .tag {
   display:inline-block;
@@ -50,40 +52,55 @@ button {
 
 <div id="map"></div>
 
+<!-- SUBMIT FORM -->
 <form id="orgForm">
   <h3>Submit Listing</h3>
+
   <input type="text" id="name" placeholder="Organization Name" required><br><br>
   <input type="text" id="types" placeholder="Type (Food, Shelter, etc)" required><br><br>
   <input type="text" id="location" placeholder="Full Address" required><br><br>
   <input type="text" id="contact" placeholder="Contact Info"><br><br>
   <textarea id="notes" placeholder="Description"></textarea><br><br>
   <input type="text" id="deleteKey" placeholder="Choose Delete Key" required><br><br>
+
   <button type="submit">Submit</button>
 </form>
 
 <div id="entries"></div>
 
-<hr>
+<!-- PUBLIC DELETE -->
+<div class="card">
+  <h3>Delete My Listing</h3>
 
-<div id="adminPanel">
+  <input type="text" id="deleteName" placeholder="Organization Name"><br><br>
+  <input type="text" id="publicDeleteKey" placeholder="Your Delete Key"><br><br>
+
+  <button onclick="deleteByKey()">Delete Listing</button>
+</div>
+
+<!-- ADMIN PANEL -->
+<div class="card">
   <h3>Admin Panel</h3>
   <button onclick="adminLogin()">Admin Login</button>
-  <div id="adminContent" style="display:none;margin-top:15px;"></div>
+  <div id="adminContent" style="margin-top:15px;"></div>
 </div>
 
 <script>
+/* CONFIG */
 const SUPABASE_URL = "https://jifbhauuqcsesscjshjl.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_jLRC9m1Kd28OJy1DOpqKCw_W93_A_4G";
 const FUNCTION_URL = "https://jifbhauuqcsesscjshjl.supabase.co/functions/v1/submit-listing";
 const ADMIN_PASSWORD = "Nittany2";
 
+/* INIT */
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const CENTER = [41.1197, -78.7603];
-const RADIUS = 32186;
+const RADIUS = 32186; // 20 miles
 
 let map, markersLayer;
 
+/* LOAD MAP */
 document.addEventListener("DOMContentLoaded", async () => {
 
   map = L.map('map').setView(CENTER, 12);
@@ -103,15 +120,19 @@ document.addEventListener("DOMContentLoaded", async () => {
   loadListings();
 });
 
+/* LOAD APPROVED LISTINGS */
 async function loadListings() {
+
   const { data } = await supabaseClient
     .from("listings")
-    .select("*");
+    .select("*")
+    .eq("approved", true);
 
   renderListings(data || []);
 }
 
 function renderListings(entries) {
+
   markersLayer.clearLayers();
   const container = document.getElementById("entries");
   container.innerHTML = "";
@@ -124,23 +145,28 @@ function renderListings(entries) {
 
     const div = document.createElement("div");
     div.className = "entry";
+
     div.innerHTML = `
       <strong>${entry.name}</strong><br>
       ${tags}<br>
       ${entry.location}<br>
       ${entry.contact || ""}<br>
-      ${entry.notes || ""}<br><br>
-      <button onclick="deleteListing('${entry.id}')">Delete</button>
+      ${entry.notes || ""}
     `;
+
     container.appendChild(div);
 
-    L.marker([entry.lat, entry.lng])
-      .addTo(markersLayer)
-      .bindPopup(`<strong>${entry.name}</strong><br>${entry.location}`);
+    if(entry.lat && entry.lng){
+      L.marker([entry.lat, entry.lng])
+        .addTo(markersLayer)
+        .bindPopup(`<strong>${entry.name}</strong><br>${entry.location}`);
+    }
   });
 }
 
+/* SUBMIT */
 document.getElementById("orgForm").addEventListener("submit", async e => {
+
   e.preventDefault();
 
   const body = {
@@ -158,14 +184,20 @@ document.getElementById("orgForm").addEventListener("submit", async e => {
     body: JSON.stringify(body)
   });
 
-  const text = await res.text();
-  alert(text);
+  alert(await res.text());
   e.target.reset();
 });
 
-async function deleteListing(id) {
-  const key = prompt("Enter your delete key:");
-  if (!key) return;
+/* PUBLIC DELETE */
+async function deleteByKey() {
+
+  const name = document.getElementById("deleteName").value.trim();
+  const key = document.getElementById("publicDeleteKey").value.trim();
+
+  if (!name || !key) {
+    alert("Enter name and delete key.");
+    return;
+  }
 
   const hashBuffer = await crypto.subtle.digest(
     "SHA-256",
@@ -179,15 +211,18 @@ async function deleteListing(id) {
   const { error } = await supabaseClient
     .from("listings")
     .delete()
-    .eq("id", id)
+    .eq("name", name)
     .eq("delete_key_hash", hash);
 
-  if (!error) loadListings();
-  else alert("Delete failed");
+  if (error) {
+    alert("Delete failed.");
+  } else {
+    alert("Listing deleted.");
+    loadListings();
+  }
 }
 
 /* ADMIN */
-
 function adminLogin() {
   const pw = prompt("Enter admin password:");
   if (pw === ADMIN_PASSWORD) {
@@ -198,13 +233,13 @@ function adminLogin() {
 }
 
 async function loadPending() {
+
   const { data } = await supabaseClient
     .from("listings")
     .select("*")
     .eq("approved", false);
 
   const container = document.getElementById("adminContent");
-  container.style.display = "block";
   container.innerHTML = "";
 
   if (!data.length) {
@@ -213,6 +248,7 @@ async function loadPending() {
   }
 
   data.forEach(entry => {
+
     const div = document.createElement("div");
     div.style.borderBottom = "1px solid #ddd";
     div.style.padding = "10px 0";
@@ -229,6 +265,7 @@ async function loadPending() {
 }
 
 async function approveListing(id) {
+
   await supabaseClient
     .from("listings")
     .update({ approved: true })
@@ -239,6 +276,7 @@ async function approveListing(id) {
 }
 
 async function adminDelete(id) {
+
   await supabaseClient
     .from("listings")
     .delete()
