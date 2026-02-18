@@ -63,11 +63,11 @@ button {
 <div id="entries"></div>
 
 <script>
-const SUPABASE_URL = "https://jifbhauuqcsesscjshjl.supabase.co/functions/v1/submit-listing";
+const SUPABASE_URL = "https://jifbhauuqcsesscjshjl.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_jLRC9m1Kd28OJy1DOpqKCw_W93_A_4G";
-const FUNCTION_URL = "https://museumpods-blip.github.io/community-directory/";
+const FUNCTION_URL = "https://jifbhauuqcsesscjshjl.supabase.co/functions/v1/submit-listing";
 
-const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const CENTER = [41.1197, -78.7603];
 const RADIUS = 32186;
@@ -94,9 +94,14 @@ document.addEventListener("DOMContentLoaded", async () => {
 });
 
 async function loadListings() {
-  const { data } = await supabase
+  const { data, error } = await supabaseClient
     .from("listings")
     .select("*");
+
+  if (error) {
+    console.error(error);
+    return;
+  }
 
   renderListings(data || []);
 }
@@ -166,7 +171,7 @@ async function deleteListing(id) {
     .map(b => b.toString(16).padStart(2, "0"))
     .join("");
 
-  const { error } = await supabase
+  const { error } = await supabaseClient
     .from("listings")
     .delete()
     .eq("id", id)
