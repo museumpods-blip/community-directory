@@ -54,14 +54,12 @@ button:hover { opacity:0.9; }
 
 <form id="orgForm">
   <h3>Submit Listing</h3>
-
   <input type="text" id="name" placeholder="Organization Name" required><br><br>
   <input type="text" id="types" placeholder="Type (Food, Shelter, etc)" required><br><br>
   <input type="text" id="location" placeholder="Full Address" required><br><br>
   <input type="text" id="contact" placeholder="Contact Info"><br><br>
   <textarea id="notes" placeholder="Description"></textarea><br><br>
   <input type="text" id="deleteKey" placeholder="Choose Delete Key" required><br><br>
-
   <button type="submit">Submit</button>
 </form>
 
@@ -69,23 +67,18 @@ button:hover { opacity:0.9; }
 
 <div class="card">
   <h3>Delete My Listing</h3>
-
   <input type="text" id="deleteName" placeholder="Organization Name"><br><br>
   <input type="text" id="publicDeleteKey" placeholder="Your Delete Key"><br><br>
-
   <button onclick="deleteByKey()">Delete Listing</button>
 </div>
 
 <script>
 const SUPABASE_URL = "https://jifbhauuqcsesscjshjl.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_jLRC9m1Kd28OJy1DOpqKCw_W93_A_4G";
-const FUNCTION_URL = "https://jifbhauuqcsesscjshjl.supabase.co/functions/v1/submit-listing";
 
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const CENTER = [41.1197, -78.7603];
-const RADIUS = 32186;
-
 let map, markersLayer;
 
 document.addEventListener("DOMContentLoaded", async () => {
@@ -98,17 +91,10 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   markersLayer = L.layerGroup().addTo(map);
 
-  L.circle(CENTER, {
-    radius: RADIUS,
-    color: "blue",
-    fillOpacity: 0.1
-  }).addTo(map);
-
   loadListings();
 });
 
 async function loadListings() {
-
   const { data } = await supabaseClient
     .from("listings")
     .select("*")
@@ -135,7 +121,7 @@ function renderListings(entries) {
     div.innerHTML = `
       <strong>${entry.name}</strong><br>
       ${tags}<br>
-      ${entry.location}<br>
+      ${entry.location || ""}<br>
       ${entry.contact || ""}<br>
       ${entry.notes || ""}
     `;
@@ -150,30 +136,33 @@ function renderListings(entries) {
   });
 }
 
+/* DIRECT SUBMIT */
 document.getElementById("orgForm").addEventListener("submit", async e => {
 
   e.preventDefault();
 
-  const body = {
-    name: document.getElementById("name").value,
-    types: document.getElementById("types").value.split(",").map(t=>t.trim()),
-    location: document.getElementById("location").value,
-    contact: document.getElementById("contact").value,
-    notes: document.getElementById("notes").value,
-    deleteKey: document.getElementById("deleteKey").value
-  };
+  const { error } = await supabaseClient
+    .from("listings")
+    .insert({
+      name: document.getElementById("name").value,
+      types: document.getElementById("types").value.split(",").map(t=>t.trim()),
+      location: document.getElementById("location").value,
+      contact: document.getElementById("contact").value,
+      notes: document.getElementById("notes").value,
+      delete_key: document.getElementById("deleteKey").value,
+      approved: false
+    });
 
-  const res = await fetch(FUNCTION_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body)
-  });
+  if (error) {
+    alert("Submit failed: " + error.message);
+    return;
+  }
 
-  alert(await res.text());
+  alert("Submission received.");
   e.target.reset();
 });
 
-/* FIXED DELETE FUNCTION */
+/* SIMPLE DELETE */
 async function deleteByKey() {
 
   const name = document.getElementById("deleteName").value.trim();
@@ -201,8 +190,8 @@ async function deleteByKey() {
     return;
   }
 
-  alert("Listing deleted successfully.");
-  location.reload();
+  alert("Listing deleted.");
+  loadListings();
 }
 </script>
 
