@@ -52,7 +52,6 @@ button:hover { opacity:0.9; }
 
 <div id="map"></div>
 
-<!-- SUBMIT FORM -->
 <form id="orgForm">
   <h3>Submit Listing</h3>
 
@@ -68,7 +67,6 @@ button:hover { opacity:0.9; }
 
 <div id="entries"></div>
 
-<!-- PUBLIC DELETE -->
 <div class="card">
   <h3>Delete My Listing</h3>
 
@@ -78,29 +76,18 @@ button:hover { opacity:0.9; }
   <button onclick="deleteByKey()">Delete Listing</button>
 </div>
 
-<!-- ADMIN PANEL -->
-<div class="card">
-  <h3>Admin Panel</h3>
-  <button onclick="adminLogin()">Admin Login</button>
-  <div id="adminContent" style="margin-top:15px;"></div>
-</div>
-
 <script>
-/* CONFIG */
 const SUPABASE_URL = "https://jifbhauuqcsesscjshjl.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_jLRC9m1Kd28OJy1DOpqKCw_W93_A_4G";
 const FUNCTION_URL = "https://jifbhauuqcsesscjshjl.supabase.co/functions/v1/submit-listing";
-const ADMIN_PASSWORD = "Nittany2";
 
-/* INIT */
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const CENTER = [41.1197, -78.7603];
-const RADIUS = 32186; // 20 miles
+const RADIUS = 32186;
 
 let map, markersLayer;
 
-/* LOAD MAP */
 document.addEventListener("DOMContentLoaded", async () => {
 
   map = L.map('map').setView(CENTER, 12);
@@ -120,7 +107,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   loadListings();
 });
 
-/* LOAD APPROVED LISTINGS */
 async function loadListings() {
 
   const { data } = await supabaseClient
@@ -164,7 +150,6 @@ function renderListings(entries) {
   });
 }
 
-/* SUBMIT */
 document.getElementById("orgForm").addEventListener("submit", async e => {
 
   e.preventDefault();
@@ -188,7 +173,7 @@ document.getElementById("orgForm").addEventListener("submit", async e => {
   e.target.reset();
 });
 
-/* PUBLIC DELETE */
+/* FIXED DELETE FUNCTION */
 async function deleteByKey() {
 
   const name = document.getElementById("deleteName").value.trim();
@@ -199,91 +184,25 @@ async function deleteByKey() {
     return;
   }
 
-  const hashBuffer = await crypto.subtle.digest(
-    "SHA-256",
-    new TextEncoder().encode(key)
-  );
-
-  const hash = Array.from(new Uint8Array(hashBuffer))
-    .map(b => b.toString(16).padStart(2, "0"))
-    .join("");
-
-  const { error } = await supabaseClient
+  const { data, error } = await supabaseClient
     .from("listings")
     .delete()
     .eq("name", name)
-    .eq("delete_key_hash", hash);
+    .eq("delete_key", key)
+    .select();
 
   if (error) {
-    alert("Delete failed.");
-  } else {
-    alert("Listing deleted.");
-    loadListings();
-  }
-}
-
-/* ADMIN */
-function adminLogin() {
-  const pw = prompt("Enter admin password:");
-  if (pw === ADMIN_PASSWORD) {
-    loadPending();
-  } else {
-    alert("Incorrect password");
-  }
-}
-
-async function loadPending() {
-
-  const { data } = await supabaseClient
-    .from("listings")
-    .select("*")
-    .eq("approved", false);
-
-  const container = document.getElementById("adminContent");
-  container.innerHTML = "";
-
-  if (!data.length) {
-    container.innerHTML = "<p>No pending submissions.</p>";
+    alert("Delete failed: " + error.message);
     return;
   }
 
-  data.forEach(entry => {
+  if (!data || data.length === 0) {
+    alert("No matching listing found.");
+    return;
+  }
 
-    const div = document.createElement("div");
-    div.style.borderBottom = "1px solid #ddd";
-    div.style.padding = "10px 0";
-
-    div.innerHTML = `
-      <strong>${entry.name}</strong><br>
-      ${entry.location}<br><br>
-      <button onclick="approveListing('${entry.id}')">Approve</button>
-      <button onclick="adminDelete('${entry.id}')">Delete</button>
-    `;
-
-    container.appendChild(div);
-  });
-}
-
-async function approveListing(id) {
-
-  await supabaseClient
-    .from("listings")
-    .update({ approved: true })
-    .eq("id", id);
-
-  loadPending();
-  loadListings();
-}
-
-async function adminDelete(id) {
-
-  await supabaseClient
-    .from("listings")
-    .delete()
-    .eq("id", id);
-
-  loadPending();
-  loadListings();
+  alert("Listing deleted successfully.");
+  location.reload();
 }
 </script>
 
